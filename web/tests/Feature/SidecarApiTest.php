@@ -9,6 +9,7 @@ use App\Models\ShoppingList;
 use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\User;
+use App\Services\Sidecar\SidecarRuns;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -158,6 +159,52 @@ class SidecarApiTest extends TestCase
 
         $this->actingAs($user)->get(route('list.show'))->assertOk()
             ->assertInertia(fn ($page) => $page->where('stockCheck.last.status', 'ok'));
+    }
+
+    /** Mirrors the real report: an item added right after a check was never checked. */
+    public function test_adding_an_item_after_a_check_gets_just_that_item_checked(): void
+    {
+        $user = User::factory()->create();
+        $fareway = Store::create(['retailer_slug' => 'fareway-meat-grocery', 'name' => 'fareway-meat-grocery', 'fulfillment' => 'pickup', 'location_id' => $this->hyvee->location_id]);
+        $squash = CanonicalItem::create(['name' => 'Butternut Squash']);
+        StoreProduct::create(['store_id' => $fareway->id, 'instacart_product_id' => '102102', 'description' => 'Butternut Squash', 'canonical_item_id' => $squash->id, 'match_status' => 'confirmed']);
+
+        // A full check of the list as it stands (milk only).
+        $runId = $this->api()->getJson('/api/sidecar/work')->json('runId');
+        $this->api()->postJson("/api/sidecar/runs/{$runId}/snapshots", ['snapshots' => [$this->snapshot('hy-vee', '111'), $this->snapshot('costco', '222')]]);
+        $this->api()->postJson("/api/sidecar/runs/{$runId}/finish", ['status' => 'ok', 'searches' => 2]);
+        $this->actingAs($user)->get(route('list.show'))
+            ->assertInertia(fn ($page) => $page->where('stockCheck.unchecked', [])->where('stockCheck.requested_at', null));
+
+        // Then the squash is added: the banner says so, and a narrow check is queued.
+        $this->actingAs($user)->post(route('list.items.store'), ['name' => 'butternut squash']);
+        $this->actingAs($user)->get(route('list.show'))
+            ->assertInertia(fn ($page) => $page->where('stockCheck.unchecked', ['Butternut Squash'])->whereNot('stockCheck.requested_at', null));
+
+        $work = $this->api()->getJson('/api/sidecar/work')->json();
+        $this->assertSame([['storeSlug' => 'fareway-meat-grocery', 'instacartProductId' => '102102', 'description' => 'Butternut Squash']], $work['lookups']);
+        $this->assertSame('added', ScrapeRun::find($work['runId'])->trigger);
+
+        $this->api()->postJson("/api/sidecar/runs/{$work['runId']}/snapshots", ['snapshots' => [$this->snapshot('fareway-meat-grocery', '102102')]]);
+        $this->api()->postJson("/api/sidecar/runs/{$work['runId']}/finish", ['status' => 'ok', 'searches' => 1]);
+        $this->actingAs($user)->get(route('list.show'))->assertInertia(fn ($page) => $page->where('stockCheck.unchecked', []));
+    }
+
+    public function test_adding_an_already_fresh_item_queues_nothing_and_a_full_request_is_never_narrowed(): void
+    {
+        $user = User::factory()->create();
+        $runId = $this->api()->getJson('/api/sidecar/work')->json('runId');
+        $this->api()->postJson("/api/sidecar/runs/{$runId}/snapshots", ['snapshots' => [$this->snapshot('hy-vee', '111'), $this->snapshot('costco', '222')]]);
+        $this->api()->postJson("/api/sidecar/runs/{$runId}/finish", ['status' => 'ok', 'searches' => 2]);
+
+        $this->actingAs($user)->post(route('list.items.store'), ['name' => 'Whole milk']); // already fresh
+        $this->assertNull(app(SidecarRuns::class)->requestedAt());
+
+        $this->actingAs($user)->post(route('list.check-stock'));                  // "Check stock now": all
+        $this->actingAs($user)->post(route('list.items.store'), ['name' => 'Whole milk']);
+        $work = $this->api()->getJson('/api/sidecar/work')->json();
+        $this->assertCount(2, $work['lookups']);
+        $this->assertSame('requested', ScrapeRun::find($work['runId'])->trigger);
     }
 
     public function test_a_finished_run_cannot_be_written_to_again(): void

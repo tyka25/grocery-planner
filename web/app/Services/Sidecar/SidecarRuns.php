@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Services\Planner\PlanService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -25,16 +26,30 @@ use Illuminate\Support\Facades\DB;
  */
 class SidecarRuns
 {
-    private const REQUEST_KEY = 'sidecar.check_requested_at';
+    private const REQUEST_KEY = 'sidecar.check_request';
 
-    public function requestCheck(): void
+    /**
+     * @param  'all'|'unchecked'  $scope  'all' = "Check stock now" (every
+     *   product on the list); 'unchecked' = only products with no fresh
+     *   snapshot, requested automatically when items are added -- so adding
+     *   Butternut Squash right after a check gets it checked in seconds
+     *   instead of waiting up to auto_check_hours. A pending 'all' is never
+     *   narrowed by a later 'unchecked'.
+     */
+    public function requestCheck(string $scope = 'all'): void
     {
-        Cache::forever(self::REQUEST_KEY, now()->toIso8601String());
+        $pending = Cache::get(self::REQUEST_KEY);
+        if (($pending['scope'] ?? null) === 'all') {
+            $scope = 'all';
+        } elseif ($scope === 'unchecked' && !$this->lookupsForCurrentList(uncheckedOnly: true)) {
+            return; // everything on the list is already fresh
+        }
+        Cache::forever(self::REQUEST_KEY, ['at' => now()->toIso8601String(), 'scope' => $scope]);
     }
 
     public function requestedAt(): ?Carbon
     {
-        $at = Cache::get(self::REQUEST_KEY);
+        $at = Cache::get(self::REQUEST_KEY)['at'] ?? null;
 
         return $at ? Carbon::parse($at) : null;
     }
@@ -58,7 +73,8 @@ class SidecarRuns
             ]);
         }
 
-        $requested = $this->requestedAt() !== null;
+        $request = Cache::get(self::REQUEST_KEY);
+        $requested = $request !== null;
         $lastFinished = ScrapeRun::whereNotNull('finished_at')->latest('finished_at')->first();
         $due = $requested
             || !$lastFinished
@@ -68,16 +84,17 @@ class SidecarRuns
             return null;
         }
 
-        $lookups = $this->lookupsForCurrentList();
+        $uncheckedOnly = ($request['scope'] ?? 'all') === 'unchecked';
+        $lookups = $this->lookupsForCurrentList($uncheckedOnly);
         if (!$lookups) {
-            Cache::forget(self::REQUEST_KEY); // nothing on the list to check
+            Cache::forget(self::REQUEST_KEY); // nothing (left) on the list to check
             return null;
         }
 
         $run = ScrapeRun::create([
             'started_at' => now(),
             'status' => 'running',
-            'trigger' => $requested ? 'requested' : 'scheduled',
+            'trigger' => !$requested ? 'scheduled' : ($uncheckedOnly ? 'added' : 'requested'),
             'expected' => array_column($lookups, 'storeProductId'),
         ]);
         Cache::forget(self::REQUEST_KEY);
@@ -91,17 +108,14 @@ class SidecarRuns
      * first real run, Hy-Vee search for a product's exact name didn't
      * return that (in-stock) product, so search can't be relied on to find
      * a specific one.
+     *
+     * With $uncheckedOnly, products that already have a snapshot fresh
+     * enough for the planner to use are skipped.
      */
-    public function lookupsForCurrentList(): array
+    public function lookupsForCurrentList(bool $uncheckedOnly = false): array
     {
-        $itemIds = ShoppingList::current()->items()->whereNotNull('canonical_item_id')->pluck('canonical_item_id')->unique();
-
-        return StoreProduct::query()
-            ->with('store')
-            ->whereIn('canonical_item_id', $itemIds)
-            ->where('match_status', 'confirmed')
-            ->whereIn('store_id', Store::where('enabled', true)->select('id'))
-            ->get()
+        return $this->listProducts()
+            ->when($uncheckedOnly, fn ($ps) => $ps->reject(fn ($p) => $p->fresh_snapshot))
             ->map(fn (StoreProduct $p) => [
                 'storeSlug' => $p->store->retailer_slug,
                 'instacartProductId' => $p->instacart_product_id,
@@ -111,6 +125,42 @@ class SidecarRuns
             ->sortBy(['storeSlug', 'description'])
             ->values()
             ->all();
+    }
+
+    /**
+     * Names of list items none of whose products has a fresh snapshot, so
+     * the banner never implies the whole list was checked. Products the
+     * last ok run found no data for are left out -- they're shown as
+     * "not found" instead.
+     *
+     * @return string[]
+     */
+    public function uncheckedItemNames(): array
+    {
+        $missing = array_flip(ScrapeRun::where('status', 'ok')->latest('id')->first()?->missing ?? []);
+
+        return $this->listProducts()
+            ->groupBy('canonical_item_id')
+            ->reject(fn ($ps) => $ps->contains(fn ($p) => $p->fresh_snapshot || isset($missing[$p->id])))
+            ->map(fn ($ps) => $ps->first()->canonicalItem->name)
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /** Confirmed products of current-list items at enabled stores, each with `fresh_snapshot`. */
+    private function listProducts(): Collection
+    {
+        $itemIds = ShoppingList::current()->items()->whereNotNull('canonical_item_id')->pluck('canonical_item_id')->unique();
+        $freshSince = now()->subHours((int) config('grocery_planner.planner.snapshot_max_age_hours'));
+
+        return StoreProduct::query()
+            ->with(['store', 'canonicalItem'])
+            ->whereIn('canonical_item_id', $itemIds)
+            ->where('match_status', 'confirmed')
+            ->whereIn('store_id', Store::where('enabled', true)->select('id'))
+            ->withExists(['availabilitySnapshots as fresh_snapshot' => fn ($q) => $q->where('observed_at', '>=', $freshSince)])
+            ->get();
     }
 
     /**
@@ -199,6 +249,7 @@ class SidecarRuns
 
         return [
             'requested_at' => $requestedAt?->toIso8601String(),
+            'unchecked' => $this->uncheckedItemNames(),
             'last' => $last ? [
                 'status' => $last->isStalled() ? 'stalled' : $last->status,
                 'started_at' => $last->started_at->toIso8601String(),

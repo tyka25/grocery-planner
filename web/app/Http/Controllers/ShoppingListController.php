@@ -83,6 +83,9 @@ class ShoppingListController extends Controller
             'qty' => $data['qty'] ?? ($item?->default_qty ?? 1),
             'source' => 'adhoc',
         ]);
+        if ($item) {
+            app(SidecarRuns::class)->requestCheck('unchecked');
+        }
 
         return $this->replanAndBack($list);
     }
@@ -98,6 +101,7 @@ class ShoppingListController extends Controller
                 'qty' => $i->default_qty,
                 'source' => 'staple',
             ]));
+        app(SidecarRuns::class)->requestCheck('unchecked');
 
         return $this->replanAndBack($list);
     }

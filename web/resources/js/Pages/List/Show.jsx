@@ -412,6 +412,12 @@ function StockCheck({ status }) {
         message = `Stock checked ${ago(last.finished_at)}.`;
     }
 
+    // Never let "Stock checked 1 min ago" imply items added since were covered.
+    const unchecked = status.unchecked ?? [];
+    if (unchecked.length > 0 && !running && last) {
+        message += ` Not checked yet: ${unchecked.join(', ')}.`;
+    }
+
     const showMissing = !running && !waiting && last?.missing?.length > 0;
 
     return (

@@ -46,10 +46,11 @@ The store-assignment planner is built (`app/Services/Planner`, list UI at
 
 The sidecar run loop is wired (web: `app/Services/Sidecar`,
 `routes/api.php`; sidecar: `npm run login | loop | once`). Web suite
-70/70, sidecar 12/12. **Verified with a real logged-in run (2026-10-04)**
+72/72, sidecar 12/12. **Verified with a real logged-in run (2026-10-04)**
 against a local server on a DB copy: 9 of 9 products checked across Aldi,
 Costco and Hy-Vee in 45s, run `ok`, prices matching last-paid. It also
-caught the first real out-of-stock item (see below). `SIDECAR_TOKEN` is
+caught the first real out-of-stock item (see below). Fareway pickup
+lookups verified the same day (Butternut Squash, in stock, $3.20/lb). `SIDECAR_TOKEN` is
 set in both `web/.env` and `sidecar/.env`.
 
 ## Running the sidecar
@@ -134,6 +135,12 @@ set in both `web/.env` and `sidecar/.env`.
   `GET /api/sidecar/work` creates a `scrape_runs` row and returns one
   lookup per confirmed product of each list item, at enabled stores.
   Snapshots are saved only for products already in `store_products`.
+- **Adding an item queues a check of just the unchecked products**
+  (`trigger = 'added'`). Found in real use: an item added 37s after a
+  check finished was never checked, while the banner said "Stock checked
+  1 min ago". "Check stock now" still checks everything, and a pending
+  full request is never narrowed. The banner also names any list items
+  with no fresh snapshot ("Not checked yet: ...").
 - **Stock checks read product pages, not search.** Verified 2026-10-04: a
   Hy-Vee search for "Hy-Vee Hy-Vee Half & Half" (the exact name) returned
   46 products, not including that one, though its product page showed it
@@ -179,8 +186,6 @@ set in both `web/.env` and `sidecar/.env`.
 - Whether `node-apollo-state` survives Instacart frontend deploys
   unchanged. If it moves, runs fail loudly with the "no product data"
   error, and `npm start -- product ...` is the quickest way to check.
-- Fareway pickup lookups: not exercised yet (nothing on the test list
-  had a confirmed Fareway product).
 
 ## Build-environment note
 
