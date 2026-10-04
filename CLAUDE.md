@@ -25,6 +25,17 @@ re-routing when a store's order minimum isn't met.
   `price.viewSection.priceValueString`, `size`, `productId`) regardless of
   retailer.
 
+## Current status (2026-10-04)
+
+`web/` is fully bootstrapped (Laravel + Breeze/Inertia/React, `npm install`
+done with `--legacy-peer-deps` -- see note below) and the real import has
+been run and verified against the live database, not just the CSVs:
+53 orders, 663 lines, 499 distinct (store, product) pairs, 16
+`negative_unverified` lines -- all matching independent recomputation.
+All 5 importer tests pass. Next up: canonical-item matching (turning the
+499 store_products rows into shared "milk" / "Greek yogurt" / etc. items),
+then the store-assignment planner, then wiring the sidecar's run loop.
+
 ## Decisions and why
 
 - **No per-retailer scrapers.** Everything the household buys goes through
@@ -64,11 +75,12 @@ re-routing when a store's order minimum isn't met.
   unavailable; log whatever stock-level strings actually show up over time
   rather than assuming a fixed set.
 - **Canonical-item matching is a reviewed step, not an automatic import
-  step.** Only 6 of 470 distinct historical products were ever bought at
-  more than one store, and only 8 were bought 5+ times -- "where do I
-  usually get milk" cannot come from SKUs alone. `store_products.match_status`
-  (`unmatched` / `auto` / `confirmed` / `rejected`) exists so fuzzy-match
-  suggestions get a human yes/no, not a silent guess.
+  step.** Of 499 distinct (store, product) rows in `store_products`, only
+  8 product IDs appear at more than one store, and only 8 historical items
+  were bought 5+ times -- "where do I usually get milk" cannot come from
+  SKUs alone. `store_products.match_status` (`unmatched` / `auto` /
+  `confirmed` / `rejected`) exists so fuzzy-match suggestions get a human
+  yes/no, not a silent guess.
 
 ## What's still unverified
 
@@ -84,11 +96,17 @@ re-routing when a store's order minimum isn't met.
 
 ## Build-environment note
 
-The cloud workspace used to build the initial `overlay/` files has no
+The cloud workspace used to build the initial `overlay/` files had no
 network access to `packagist.org` (confirmed via its proxy's egress
-policy -- blocked by host, unrelated to any GitHub account/identity). That's
-why `web/` isn't a full Laravel install yet -- see `scripts/bootstrap-web.sh`.
-npm access was fine, so `sidecar/` is a real, installed, typechecked package.
+policy -- blocked by host, unrelated to any GitHub account/identity), so
+`scripts/bootstrap-web.sh` existed to let composer/npm run with real
+network access instead. That script has already been run (by hand, not by
+it directly) -- `web/` is a complete Laravel install; the script is now
+just a record of the steps, not something you need to re-run.
+`npm install` needed `--legacy-peer-deps`: Breeze's installer pinned
+`vite@^8.0.0`, newer than `@vitejs/plugin-react@4.7.0`'s peer range --
+unresolved as of this writing, worth revisiting if a plugin-react bump
+fixes it cleanly.
 
 ## Conventions
 
