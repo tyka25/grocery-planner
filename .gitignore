@@ -1,0 +1,24 @@
+# Real Instacart exports: personal financial/order data, never committed.
+# (Test fixtures under web/tests/Fixtures are small hand-picked excerpts and ARE committed.)
+/data/*.csv
+
+# Laravel
+/web/vendor/
+/web/node_modules/
+/web/.env
+/web/storage/*.key
+/web/bootstrap/cache/*.php
+/web/public/hot
+/web/public/storage
+/web/storage/app/*
+!/web/storage/app/.gitkeep
+/web/storage/framework/**
+!/web/storage/framework/.gitkeep
+
+# Sidecar
+/sidecar/node_modules/
+/sidecar/dist/
+/sidecar/storage-state.json
+/sidecar/.env
+
+.DS_Store
