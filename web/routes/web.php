@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,12 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/matching', [MatchingController::class, 'index'])->name('matching.index');
+    Route::get('/matching/products/{storeProduct}/similar', [MatchingController::class, 'similar'])->name('matching.similar');
+    Route::post('/matching/products/{storeProduct}/confirm', [MatchingController::class, 'confirm'])->name('matching.confirm');
+    Route::post('/matching/products/{storeProduct}/reject', [MatchingController::class, 'reject'])->name('matching.reject');
+    Route::post('/matching/items', [MatchingController::class, 'storeItem'])->name('matching.items.store');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

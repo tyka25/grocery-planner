@@ -19,4 +19,35 @@ return [
         'Seaside' => ['label' => 'Travel (FL)', 'kind' => 'travel', 'fulfillment' => 'delivery', 'store_slug_hint' => null],
         'Bayview' => ['label' => 'Travel (FL)', 'kind' => 'travel', 'fulfillment' => 'delivery', 'store_slug_hint' => null],
     ],
+
+    /*
+     * Canonical-item matching (App\Services\Matching). Suggestions at or above
+     * suggest_threshold are written as match_status = 'auto' and wait for a
+     * human yes/no; nothing is ever marked 'confirmed' automatically.
+     *
+     * noise_phrases: removed from descriptions before comparing (store brands
+     *                and packaging words that say nothing about *what* the
+     *                item is). Matched case-insensitively on word boundaries.
+     *                Multi-word phrases are listed so e.g. "fresh thyme" (the
+     *                store) can go without dropping "thyme" (the herb).
+     * stopwords:     single tokens dropped after tokenizing.
+     */
+    'matching' => [
+        'suggest_threshold' => 0.6,
+        // In the "new item" dialog, look-alike products at or above this are
+        // pre-ticked; ones between suggest_threshold and this are listed
+        // unticked. Kept high because a pre-ticked wrong product gets
+        // confirmed by a single click (seen on real data: "Organic Whole
+        // Milk Plain Yogurt" at 0.67 against a whole-milk item).
+        'preselect_threshold' => 0.8,
+        'noise_phrases' => [
+            'kirkland signature', 'simply nature', 'fresh thyme market', 'fresh thyme farmers market',
+            'fresh thyme', "member's mark", 'members mark', 'good & gather', 'great value', 'hy-vee', 'hyvee',
+            'short cuts', 'aldi', 'costco', 'fareway', 'publix', 'target',
+        ],
+        'stopwords' => [
+            'a', 'an', 'and', 'the', 'of', 'with', 'in', 'for', 'or', 'to',
+            'fresh', 'package', 'bag', 'bagged', 'each', 'style', 'premium', 'value', 'pack',
+        ],
+    ],
 ];

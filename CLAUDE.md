@@ -32,9 +32,16 @@ done with `--legacy-peer-deps` -- see note below) and the real import has
 been run and verified against the live database, not just the CSVs:
 53 orders, 663 lines, 499 distinct (store, product) pairs, 16
 `negative_unverified` lines -- all matching independent recomputation.
-All 5 importer tests pass. Next up: canonical-item matching (turning the
-499 store_products rows into shared "milk" / "Greek yogurt" / etc. items),
-then the store-assignment planner, then wiring the sidecar's run loop.
+All 5 importer tests pass.
+
+Canonical-item matching is built (`app/Services/Matching`, review UI at
+`/matching`, `php artisan canonical:suggest`); full suite is 43/43. The
+live DB has the migration but **no canonical items yet** -- they get
+created by hand in the UI ("New item" on a product, which pre-ticks
+near-identical products at other stores), and suggestions only start
+appearing once items exist. Next up: the store-assignment planner (which
+should read only `confirmed` links, never `auto`), then wiring the
+sidecar's run loop.
 
 ## Decisions and why
 
@@ -80,7 +87,14 @@ then the store-assignment planner, then wiring the sidecar's run loop.
   were bought 5+ times -- "where do I usually get milk" cannot come from
   SKUs alone. `store_products.match_status` (`unmatched` / `auto` /
   `confirmed` / `rejected`) exists so fuzzy-match suggestions get a human
-  yes/no, not a silent guess.
+  yes/no, not a silent guess. Invariant: `canonical_item_id` is set iff
+  status is `auto` (a suggestion) or `confirmed`. `rejected` means the
+  latest suggestion was declined; every declined (product, item) pair is
+  kept in `match_rejections` so it's never re-suggested.
+- **Name scoring is scaled by description length.** Plain "are the name's
+  words in the description" suggested "Lemon" for lemon hummus, lemon
+  seltzer, and lemon-garlic pork on the real data. Thresholds live in
+  `config/grocery_planner.php` `matching`.
 
 ## What's still unverified
 
@@ -103,6 +117,12 @@ policy -- blocked by host, unrelated to any GitHub account/identity), so
 network access instead. That script has already been run (by hand, not by
 it directly) -- `web/` is a complete Laravel install; the script is now
 just a record of the steps, not something you need to re-run.
+`resources/js/bootstrap.js` was never committed by that bootstrap (Breeze's
+`app.jsx` imports it), so `npm run build` -- and every Breeze test that
+renders a page -- failed until it was added on 2026-10-04. Also on this
+Mac, `@rolldown/binding-darwin-arm64` came down empty (npm optional-deps
+bug); fixed locally with `npm install --no-save --legacy-peer-deps
+@rolldown/binding-darwin-arm64@1.2.12`.
 `npm install` needed `--legacy-peer-deps`: Breeze's installer pinned
 `vite@^8.0.0`, newer than `@vitejs/plugin-react@4.7.0`'s peer range --
 unresolved as of this writing, worth revisiting if a plugin-react bump
