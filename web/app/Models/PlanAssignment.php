@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class PlanAssignment extends Model
 {
-    protected $fillable = ['list_item_id', 'store_product_id', 'store_id', 'reason'];
+    protected $fillable = [
+        'list_item_id', 'store_product_id', 'store_id', 'reason',
+        'note', 'estimated_unit_price', 'price_source', 'available',
+    ];
+
+    protected $casts = ['available' => 'boolean', 'estimated_unit_price' => 'float'];
 
     public function listItem()
     {

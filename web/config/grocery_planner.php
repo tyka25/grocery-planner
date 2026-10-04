@@ -32,6 +32,26 @@ return [
      *                store) can go without dropping "thyme" (the herb).
      * stopwords:     single tokens dropped after tokenizing.
      */
+    /*
+     * Store-assignment planner (App\Services\Planner). Every item goes to its
+     * usual store; items only move when that store is out of stock or an
+     * order misses its minimum (see Planner for the repair rules).
+     *
+     * pickup_trip_cost:     what adding a pickup-only store (Fareway) to a
+     *                       plan "costs", in dollars, when weighed against a
+     *                       delivery fee. Household's call, not a measured fee.
+     * assumed_delivery_fee: used when a store's delivery_fee column is empty.
+     *                       Real per-store fees are still unverified (see
+     *                       CLAUDE.md), so this is a placeholder estimate.
+     * snapshot_max_age_hours: availability snapshots older than this are
+     *                       ignored (stock treated as unknown).
+     */
+    'planner' => [
+        'pickup_trip_cost' => 10.00,
+        'assumed_delivery_fee' => 3.99,
+        'snapshot_max_age_hours' => 48,
+    ],
+
     'matching' => [
         'suggest_threshold' => 0.6,
         // In the "new item" dialog, look-alike products at or above this are

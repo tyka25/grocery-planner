@@ -39,9 +39,13 @@ Canonical-item matching is built (`app/Services/Matching`, review UI at
 live DB has the migration but **no canonical items yet** -- they get
 created by hand in the UI ("New item" on a product, which pre-ticks
 near-identical products at other stores), and suggestions only start
-appearing once items exist. Next up: the store-assignment planner (which
-should read only `confirmed` links, never `auto`), then wiring the
-sidecar's run loop.
+appearing once items exist.
+
+The store-assignment planner is built (`app/Services/Planner`, list UI at
+`/list`); full suite is 61/61. It reads only `confirmed` links. Until the
+sidecar posts `availability_snapshots`, every item's stock is "not
+checked" and prices are last-paid estimates. Next up: wiring the
+sidecar's run loop so plans see real stock and price.
 
 ## Decisions and why
 
@@ -91,6 +95,23 @@ sidecar's run loop.
   status is `auto` (a suggestion) or `confirmed`. `rejected` means the
   latest suggestion was declined; every declined (product, item) pair is
   kept in `match_rejections` so it's never re-suggested.
+- **Planner objective: usual store, re-route only when needed** (household's
+  choice over cheapest-total). Usual = pinned `item_store_prefs`, else most
+  delivered purchases. Items move only for a fresh out-of-stock snapshot or
+  minimum repair; hand-moved and pinned items never move. A pickup trip is
+  valued at $10 (`config grocery_planner.planner.pickup_trip_cost`, the
+  household's number), so a Fareway trip is added only when it beats a
+  delivery fee or rescues a hard minimum, and a small Fareway order folds
+  into stores already in the plan.
+- **Price estimates for minimums use last-paid unit price** (`line_total /
+  qty` of the latest delivered line, or a snapshot price). This doesn't
+  conflict with "line prices are not trusted": they're shown as `~$`
+  estimates, stored only on `plan_assignments.estimated_unit_price`, and
+  never reported as spend. Delivery fees are still unverified;
+  `assumed_delivery_fee` ($3.99) is a placeholder until real ones are seen.
+- **Publix and ABC are disabled** (`stores.enabled = false`). Vacation
+  purchases; history is kept, never planned to. Aldi, Target and Fresh
+  Thyme stay enabled.
 - **Name scoring is scaled by description length.** Plain "are the name's
   words in the description" suggested "Lemon" for lemon hummus, lemon
   seltzer, and lemon-garlic pork on the real data. Thresholds live in
