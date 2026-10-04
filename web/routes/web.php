@@ -28,7 +28,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/list/items/{listItem}/move', [ShoppingListController::class, 'move'])->name('list.items.move');
     Route::post('/list/staples', [ShoppingListController::class, 'addStaples'])->name('list.staples');
     Route::post('/list/plan', [ShoppingListController::class, 'plan'])->name('list.plan');
-    Route::post('/list/finish', [ShoppingListController::class, 'finish'])->name('list.finish');
+    Route::post('/list/check-stock', [ShoppingListController::class, 'checkStock'])->name('list.check-stock');
+    Route::post('/list/finish',[ShoppingListController::class, 'finish'])->name('list.finish');
     Route::post('/items/{canonicalItem}/staple', [ShoppingListController::class, 'toggleStaple'])->name('items.staple');
 
     Route::get('/matching',[MatchingController::class, 'index'])->name('matching.index');

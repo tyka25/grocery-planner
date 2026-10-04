@@ -42,10 +42,26 @@ near-identical products at other stores), and suggestions only start
 appearing once items exist.
 
 The store-assignment planner is built (`app/Services/Planner`, list UI at
-`/list`); full suite is 61/61. It reads only `confirmed` links. Until the
-sidecar posts `availability_snapshots`, every item's stock is "not
-checked" and prices are last-paid estimates. Next up: wiring the
-sidecar's run loop so plans see real stock and price.
+`/list`). It reads only `confirmed` links.
+
+The sidecar run loop is wired (web: `app/Services/Sidecar`,
+`routes/api.php`; sidecar: `npm run login | loop | once`). Web suite
+70/70, sidecar 12/12. **Verified with a real logged-in run (2026-10-04)**
+against a local server on a DB copy: 9 of 9 products checked across Aldi,
+Costco and Hy-Vee in 45s, run `ok`, prices matching last-paid. It also
+caught the first real out-of-stock item (see below). `SIDECAR_TOKEN` is
+set in both `web/.env` and `sidecar/.env`.
+
+## Running the sidecar
+
+1. `cd web && php artisan serve` (the API the sidecar polls).
+2. `cd sidecar && npm run login`: sign in, check the home address and
+   the Fareway Riverside pickup store, press Enter. Saves `storage-state.json`.
+3. `npm start -- product hy-vee 19036914`: debug read of one product
+   page (what runs do) that posts nothing. Good first check that capture
+   still works. (`npm start -- search <store> <query>` also exists.)
+4. `npm run loop`: polls every 60s. A check runs when "Check stock now"
+   is pressed on `/list`, or the last finished run is over 6h old.
 
 ## Decisions and why
 
@@ -66,8 +82,8 @@ sidecar's run loop so plans see real stock and price.
   the order total. Stored as `negative_unverified`, not used as an
   out-of-stock signal. Out-of-stock history, if it exists, has to come from
   `refunded` lines and live `availability_snapshots` going forward.
-  (No out-of-stock example has actually been observed yet in ~60 live
-  product lookups across four stores -- every item checked was in stock.)
+  First live out-of-stock example (2026-10-04): product 17327146 (Organic
+  Blueberries Package) at both Aldi and Hy-Vee.
 - **Shipping Address identifies *fulfillment location*, not delivery
   destination.** A pickup order's "address" is the store you drove to.
   Confirmed: all 3 Fareway orders list a Riverside address because Fareway
@@ -80,11 +96,13 @@ sidecar's run loop so plans see real stock and price.
   header). Pickup has no delivery fee but costs a drive; moving an item to
   Fareway to hit a minimum is a different trade-off than moving it to
   Costco. The planner must not use one cost model for both.
-- **Stock level is stored as free text, not an enum.** Confirmed values
-  differ: `highlyInStock` / `inStock` across stores, no label at all on the
-  base "in stock" level. Treat anything other than `available: true` as
-  unavailable; log whatever stock-level strings actually show up over time
-  rather than assuming a fixed set.
+- **Stock level is stored as free text, not an enum, and `available` is
+  the only source of truth.** Confirmed values differ: `highlyInStock` /
+  `inStock` across stores. `stockLevel` can even contradict availability:
+  the out-of-stock blueberries above came back `available: false`,
+  `stockLevel: "inStock"`, while Instacart's own label read "Out of stock".
+  Treat anything other than `available: true` as unavailable; log
+  whatever stock-level strings show up rather than assuming a fixed set.
 - **Canonical-item matching is a reviewed step, not an automatic import
   step.** Of 499 distinct (store, product) rows in `store_products`, only
   8 product IDs appear at more than one store, and only 8 historical items
@@ -112,6 +130,40 @@ sidecar's run loop so plans see real stock and price.
 - **Publix and ABC are disabled** (`stores.enabled = false`). Vacation
   purchases; history is kept, never planned to. Aldi, Target and Fresh
   Thyme stay enabled.
+- **The web app decides what to check; the sidecar only reads pages.**
+  `GET /api/sidecar/work` creates a `scrape_runs` row and returns one
+  lookup per confirmed product of each list item, at enabled stores.
+  Snapshots are saved only for products already in `store_products`.
+- **Stock checks read product pages, not search.** Verified 2026-10-04: a
+  Hy-Vee search for "Hy-Vee Hy-Vee Half & Half" (the exact name) returned
+  46 products, not including that one, though its product page showed it
+  highly in stock. Search ranking can't be relied on to find a specific
+  product. The product page's server-rendered HTML embeds Instacart's
+  Apollo cache (`<script id="node-apollo-state">`, URL-encoded JSON) with
+  the same `Items` objects search returns (productId, size, price,
+  availability), scoped to the session's store and ZIP. It also reports
+  out-of-stock products, which search might not. Reading it from the HTML
+  doesn't depend on GraphQL query hashes at all.
+- **Sidecar failures are loud by construction.** Every claimed run gets
+  finished. A missing session or a sign-in redirect is `session_expired`.
+  Three product pages with no data before any capture is `error`
+  (catches a sign-in wall we don't recognise, or a page change). An "ok" run with zero
+  captures is downgraded to `error` server-side. A run with no finish
+  after 30 min is marked stalled. Auto-checks are spaced by the last
+  *finished* run of any outcome, so an expired session isn't retried
+  every poll. The `/list` banner shows all of these.
+- **"No data on its product page" is not "out of stock".** It most
+  likely means the store stopped carrying it or re-numbered it. Those are
+  listed on `/list` (`scrape_runs.missing`, ok runs only) with a prompt to
+  link a replacement. Only an explicit `available: false` re-routes the
+  planner.
+- **Never wait for `networkidle` on Instacart.** Analytics and polling
+  traffic never stops, so it always hit the 30s timeout (the first real
+  run failed this way). Use `domcontentloaded`. Search waits until the
+  captured result count settles.
+- **`php artisan serve` doesn't pass shell env vars to the server**
+  (found while testing). To run the app against another DB, start
+  `php -S` from `web/public` with the env vars set instead.
 - **Name scoring is scaled by description length.** Plain "are the name's
   words in the description" suggested "Lemon" for lemon hummus, lemon
   seltzer, and lemon-garlic pork on the real data. Thresholds live in
@@ -122,12 +174,13 @@ sidecar's run loop so plans see real stock and price.
 - Exact service-fee amounts and hard order minimums per store (only visible
   with items actually in a cart -- not tested yet to avoid touching the
   real household cart without asking first).
-- Whether Instacart's search-replay approach (varying the `k` query
-  variable on a captured request) works for discovering out-of-stock items,
-  or whether it only returns matches for genuinely available products.
-- How often Instacart's persisted-query hashes actually change in practice
-  (the sidecar should degrade loudly, not silently, when a capture finds
-  nothing).
+- What an expired session actually looks like. `looksSignedOut()` is a
+  URL guess; the "no data on the first 3 pages" rule is the backstop.
+- Whether `node-apollo-state` survives Instacart frontend deploys
+  unchanged. If it moves, runs fail loudly with the "no product data"
+  error, and `npm start -- product ...` is the quickest way to check.
+- Fareway pickup lookups: not exercised yet (nothing on the test list
+  had a confirmed Fareway product).
 
 ## Build-environment note
 

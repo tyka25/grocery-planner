@@ -3,7 +3,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const opts = { preserveScroll: true };
 
@@ -16,7 +16,7 @@ const REASON_STYLE = {
 
 const money = (n) => `$${n.toFixed(2)}`;
 
-export default function Show({ list, lines, stores, catalog }) {
+export default function Show({ list, lines, stores, catalog, stockCheck }) {
     const planned = list.status === 'planned';
     const staplesAvailable = catalog.some(
         (c) =>
@@ -36,6 +36,10 @@ export default function Show({ list, lines, stores, catalog }) {
             <div className="py-8">
                 <div className="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <AddItem catalog={catalog} />
+
+                    {lines.some((l) => l.canonical_item_id) && (
+                        <StockCheck status={stockCheck} />
+                    )}
 
                     <div className="flex flex-wrap gap-2">
                         {staplesAvailable && (
@@ -290,6 +294,7 @@ function LineRow({ line: l, planned = false }) {
                         <div className={'text-xs ' + REASON_STYLE[a.reason]}>
                             {a.note}
                             {a.available === null && ' · stock not checked'}
+                            {a.available === true && ' · in stock'}
                             {a.unit_price !== null &&
                                 ` · ~${money(a.unit_price)}${l.qty !== 1 ? ' each' : ''}`}
                         </div>
@@ -350,6 +355,95 @@ function LineRow({ line: l, planned = false }) {
                     ✕
                 </button>
             </div>
+        </div>
+    );
+}
+
+const ago = (iso) => {
+    const mins = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    return `${Math.round(hours / 24)} days ago`;
+};
+
+function StockCheck({ status }) {
+    const { last, requested_at: requestedAt } = status;
+    const running = last?.status === 'running';
+    const waiting = !!requestedAt;
+
+    // While a check is queued or running, refresh just this panel and the plan.
+    useEffect(() => {
+        if (!running && !waiting) return;
+        const id = setInterval(
+            () =>
+                router.reload({
+                    only: ['stockCheck', 'lines', 'stores'],
+                    preserveScroll: true,
+                }),
+            10000,
+        );
+        return () => clearInterval(id);
+    }, [running, waiting]);
+
+    let tone = 'bg-gray-50 text-gray-700';
+    let message;
+    if (running) {
+        message = `Checking stock… (started ${ago(last.started_at)})`;
+    } else if (waiting) {
+        const minutes = (Date.now() - new Date(requestedAt)) / 60000;
+        message =
+            minutes > 3
+                ? 'Still waiting for the home computer to pick this up. Is the sidecar running?'
+                : 'Stock check requested. It starts within a minute if the home computer is on.';
+        if (minutes > 3) tone = 'bg-amber-50 text-amber-800';
+    } else if (!last) {
+        message =
+            "Stock hasn't been checked yet. Plans use usual stores and last-paid prices until it is.";
+    } else if (last.status === 'session_expired') {
+        tone = 'bg-red-50 text-red-800';
+        message =
+            'The Instacart sign-in on the home computer has expired. Run “npm run login” in the sidecar folder there to sign in again.';
+    } else if (last.status === 'error' || last.status === 'stalled') {
+        tone = 'bg-red-50 text-red-800';
+        message = `Last stock check failed (${ago(last.started_at)}): ${last.error ?? 'it never finished.'}`;
+    } else {
+        message = `Stock checked ${ago(last.finished_at)}.`;
+    }
+
+    const showMissing = !running && !waiting && last?.missing?.length > 0;
+
+    return (
+        <div className={'space-y-2 rounded-lg p-3 text-sm ' + tone}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>{message}</span>
+                {!running && !waiting && (
+                    <SecondaryButton
+                        onClick={() =>
+                            router.post(route('list.check-stock'), {}, opts)
+                        }
+                    >
+                        Check stock now
+                    </SecondaryButton>
+                )}
+            </div>
+            {showMissing && (
+                <details className="text-amber-800">
+                    <summary className="cursor-pointer">
+                        {last.missing.length} product
+                        {last.missing.length === 1 ? " wasn't" : "s weren't"}{' '}
+                        found on Instacart. The store may have stopped
+                        carrying {last.missing.length === 1 ? 'it' : 'them'},
+                        so link a replacement on the Item matching page.
+                    </summary>
+                    <ul className="ms-5 mt-1 list-disc">
+                        {last.missing.map((m) => (
+                            <li key={m}>{m}</li>
+                        ))}
+                    </ul>
+                </details>
+            )}
         </div>
     );
 }
