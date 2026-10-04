@@ -176,6 +176,48 @@ set in both `web/.env` and `sidecar/.env`.
   seltzer, and lemon-garlic pork on the real data. Thresholds live in
   `config/grocery_planner.php` `matching`.
 
+## Next steps (paused 2026-10-04)
+
+All four planned phases are merged (matching, planner + list UI, sidecar
+stock checks, checking newly added items). Remaining, roughly in order:
+
+1. **Enter real household data (the user's job, in the UI).** Only 4
+   canonical items, 11 confirmed products, and 0 staples exist; most of
+   the 499 imported products are unlinked. Set up the regular items on
+   `/matching` (milk, yogurt, berries, cheese, other baby staples), most
+   bought first, and star staples so "Add staples" builds a weekly list.
+2. **Verify real fees and hard minimums per store.** The planner still
+   assumes a $3.99 delivery fee and no hard minimums. These only show
+   with items in a cart. Do it together with the user, never alone,
+   since it touches the real household cart.
+3. **Make it run unattended:** launchd jobs for the web server and
+   `npm run loop`, started at login and restarted on crash, with the Mac
+   set not to sleep while plugged in.
+4. **Phone access on the home network.** Not working as of 2026-10-04,
+   for these reasons:
+   - `php artisan serve` binds to 127.0.0.1. Use `--host=0.0.0.0`.
+   - `public/hot` existed (`npm run dev` running) and points to
+     `http://127.0.0.1:5173`, so a phone loads a blank page. Use
+     `npm run build` with the dev server stopped, or `npm run dev -- --host`.
+   - Then the URL is `http://Tylers-MacBook-Pro-2.local:8000`. The LAN IP
+     (192.168.0.10) can change.
+   - Before the household uses it: set `APP_DEBUG=false` (full error pages
+     are otherwise visible on the LAN), and close `/register` once both
+     accounts exist. Plain HTTP is fine on the home LAN; don't
+     port-forward without HTTPS and hardening.
+5. **Watch real use** for the items under "What's still unverified".
+
+Leftovers: `web/CLAUDE.md` (Laravel Boost guidance) asks to install
+`laravel/boost`; not done, as it's unrelated to the work so far. The
+vite@8 / plugin-react peer-range mismatch (see Build-environment note)
+is still open.
+
+Local state that is not in git (by design) and not backed up:
+`web/database/database.sqlite` (orders, items, lists, stock history; the
+one worth backing up), `sidecar/storage-state.json` (Instacart sign-in;
+recreate with `npm run login`), and `web/.env` / `sidecar/.env` (the
+`SIDECAR_TOKEN` must match in both).
+
 ## What's still unverified
 
 - Exact service-fee amounts and hard order minimums per store (only visible
