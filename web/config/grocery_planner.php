@@ -52,6 +52,24 @@ return [
         'snapshot_max_age_hours' => 48,
     ],
 
+    /*
+     * The Playwright sidecar (../sidecar) polls GET /api/sidecar/work and is
+     * handed a run when one is due: someone pressed "Check stock now", or
+     * the last finished run (of any outcome, so an expired session isn't
+     * retried every minute) is older than auto_check_hours.
+     *
+     * token:              shared secret; the sidecar sends it as a Bearer
+     *                     token. Unset = API refuses everything.
+     * stalled_after_minutes: a 'running' run older than this is treated as
+     *                     dead (sidecar crashed / machine slept) so a new
+     *                     one can start.
+     */
+    'sidecar' => [
+        'token' => env('SIDECAR_TOKEN'),
+        'auto_check_hours' => 6,
+        'stalled_after_minutes' => 30,
+    ],
+
     'matching' => [
         'suggest_threshold' => 0.6,
         // In the "new item" dialog, look-alike products at or above this are

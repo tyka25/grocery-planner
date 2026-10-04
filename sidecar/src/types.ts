@@ -13,12 +13,29 @@ export interface AvailabilitySnapshot {
   stockLevel: string | null;
   price: number | null;
   sizeText: string | null;
-  query: string; // the search term that surfaced this item
+  /** Product name as the storefront shows it (logging/debugging; the web app ignores it). */
+  name: string | null;
+  query: string; // the search term, or product description for a product-page lookup
 }
 
-export interface StoreTarget {
+/** One product the web app wants checked at one store (GET /api/sidecar/work). */
+export interface Lookup {
   /** Instacart storefront slug, e.g. "hy-vee", "costco", "sams-club", "fareway-meat-grocery". */
-  slug: string;
-  /** "delivery" or "pickup" -- Fareway is pickup-only; confirmed via the storefront's own fulfillment control. */
-  fulfillment: "delivery" | "pickup";
+  storeSlug: string;
+  instacartProductId: string;
+  /** The household's description of it, for logs (stored as the snapshot's `query`). */
+  description: string;
+}
+
+export interface Work {
+  runId: number | null;
+  lookups: Lookup[];
+}
+
+export type RunStatus = "ok" | "session_expired" | "error";
+
+export interface SearchResult {
+  snapshots: AvailabilitySnapshot[];
+  /** The page ended up on a sign-in screen instead of the store. */
+  signedOut: boolean;
 }

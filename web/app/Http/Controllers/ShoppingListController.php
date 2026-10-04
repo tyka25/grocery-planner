@@ -8,6 +8,7 @@ use App\Models\ListItem;
 use App\Models\ShoppingList;
 use App\Models\Store;
 use App\Services\Planner\PlanService;
+use App\Services\Sidecar\SidecarRuns;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,7 @@ class ShoppingListController extends Controller
             'lines' => $lines,
             'stores' => $list->status === 'planned' ? $this->storeSummaries($lines, $stores, $service) : [],
             'catalog' => CanonicalItem::orderBy('name')->get(['id', 'name', 'is_staple']),
+            'stockCheck' => app(SidecarRuns::class)->statusForUi(),
         ]);
     }
 
@@ -163,6 +165,14 @@ class ShoppingListController extends Controller
         // Re-plan fills in the product/price for the chosen store and lets
         // the store the item left re-check its minimum.
         return $this->replanAndBack($listItem->shoppingList);
+    }
+
+    /** Ask the sidecar for a stock check; it picks this up on its next poll. */
+    public function checkStock(SidecarRuns $runs): RedirectResponse
+    {
+        $runs->requestCheck();
+
+        return back();
     }
 
     public function finish(): RedirectResponse
