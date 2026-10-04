@@ -49,9 +49,12 @@ class InstacartImportTest extends TestCase
         $importer = new Importer(['123 Main' => ['kind' => 'home', 'fulfillment' => 'delivery', 'store_slug_hint' => null]]);
         $result = $importer->parseOrderHistory($this->fixture('order_history_sample.csv'));
 
-        // Only the home address matches this deliberately incomplete resolver;
-        // the other three addresses in the fixture must come back unresolved.
-        $this->assertCount(3, $result['unresolved_addresses']);
+        // Only the home address matches this deliberately incomplete resolver.
+        // Two of the four fixture orders share that home address (one Delivered,
+        // one Partial Refund), so only the two genuinely different addresses --
+        // Fareway/Riverside and the Florida travel order -- come back unresolved;
+        // unresolved_addresses is deduplicated, not a count of orders.
+        $this->assertCount(2, $result['unresolved_addresses']);
         $unresolvedOrder = collect($result['orders'])->firstWhere('instacart_order_id', '21311852541498428');
         $this->assertNull($unresolvedOrder['location_kind']);
     }
