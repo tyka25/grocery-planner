@@ -64,6 +64,19 @@ set in both `web/.env` and `sidecar/.env`.
 4. `npm run loop`: polls every 60s. A check runs when "Check stock now"
    is pressed on `/list`, or the last finished run is over 6h old.
 
+Normally steps 1 and 4 run unattended instead: `scripts/install-launchd.sh`
+installs two launchd agents (`com.grocery-planner.web`,
+`com.grocery-planner.sidecar`) that start at login and restart within 30s
+if they exit. The script also does a fresh `npm run build`. Logs are in
+`~/Library/Logs/grocery-planner/`. Use `status` and `uninstall` as
+arguments. Re-run it after changing the PHP or Node version (it writes
+absolute paths from your shell, since launchd doesn't read your profile).
+A sidecar restart rebuilds `dist/`, but a PHP or asset change in `web/`
+needs a re-run, or `launchctl kickstart -k gui/$(id -u)/com.grocery-planner.web`
+for PHP only. Before running steps 1 or 4 by hand, run
+`scripts/install-launchd.sh uninstall`, or the port and the sidecar session
+are already in use.
+
 ## Decisions and why
 
 - **No per-retailer scrapers.** Everything the household buys goes through
@@ -190,9 +203,14 @@ stock checks, checking newly added items). Remaining, roughly in order:
    assumes a $3.99 delivery fee and no hard minimums. These only show
    with items in a cart. Do it together with the user, never alone,
    since it touches the real household cart.
-3. **Make it run unattended:** launchd jobs for the web server and
-   `npm run loop`, started at login and restarted on crash, with the Mac
-   set not to sleep while plugged in.
+3. **Make it run unattended.** Done 2026-10-04 with
+   `scripts/install-launchd.sh` (see "Running the sidecar"). Verified:
+   both jobs start, the sidecar polls the server, the LAN URL answers,
+   and a `kill -9` of either job is restarted. Staying awake is done with
+   `caffeinate -s` around the sidecar, not `pmset`, so no sudo is needed.
+   It only holds on AC power, and closing the lid still sleeps the
+   laptop. Not yet verified across a reboot or a full day of use. Logs
+   aren't rotated (low volume).
 4. **Phone access on the home network.** Set up 2026-10-04; verified
    over the LAN address from the Mac, not yet from a phone.
    - Serve with `php artisan serve --host=0.0.0.0` and built assets
