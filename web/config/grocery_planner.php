@@ -64,6 +64,13 @@ return [
      *                     dead (sidecar crashed / machine slept) so a new
      *                     one can start.
      */
+    /*
+     * Household-only app: /register is closed unless this is set, so anyone
+     * on the home network can't make an account. Turn it on briefly to add
+     * an account, then turn it off again.
+     */
+    'registration_open' => (bool) env('REGISTRATION_OPEN', false),
+
     'sidecar' => [
         'token' => env('SIDECAR_TOKEN'),
         'auto_check_hours' => 6,

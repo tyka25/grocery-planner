@@ -193,18 +193,18 @@ stock checks, checking newly added items). Remaining, roughly in order:
 3. **Make it run unattended:** launchd jobs for the web server and
    `npm run loop`, started at login and restarted on crash, with the Mac
    set not to sleep while plugged in.
-4. **Phone access on the home network.** Not working as of 2026-10-04,
-   for these reasons:
-   - `php artisan serve` binds to 127.0.0.1. Use `--host=0.0.0.0`.
-   - `public/hot` existed (`npm run dev` running) and points to
-     `http://127.0.0.1:5173`, so a phone loads a blank page. Use
-     `npm run build` with the dev server stopped, or `npm run dev -- --host`.
-   - Then the URL is `http://Tylers-MacBook-Pro-2.local:8000`. The LAN IP
+4. **Phone access on the home network.** Set up 2026-10-04; verified
+   over the LAN address from the Mac, not yet from a phone.
+   - Serve with `php artisan serve --host=0.0.0.0` and built assets
+     (`npm run build`, no `public/hot`). A running `npm run dev` writes
+     `public/hot` pointing at 127.0.0.1:5173, so a phone gets a blank page.
+   - URL: `http://Tylers-MacBook-Pro-2.local:8000`. The LAN IP
      (192.168.0.10) can change.
-   - Before the household uses it: set `APP_DEBUG=false` (full error pages
-     are otherwise visible on the LAN), and close `/register` once both
-     accounts exist. Plain HTTP is fine on the home LAN; don't
-     port-forward without HTTPS and hardening.
+   - Local `.env` has `APP_DEBUG=false` and the LAN `APP_URL`.
+   - `/register` 404s unless `REGISTRATION_OPEN=true` (config
+     `grocery_planner.registration_open`). Only Katie's account exists;
+     flip it on briefly to add another. Plain HTTP is fine on the home
+     LAN; don't port-forward without HTTPS and hardening.
 5. **Watch real use** for the items under "What's still unverified".
 
 Leftovers: `web/CLAUDE.md` (Laravel Boost guidance) asks to install
