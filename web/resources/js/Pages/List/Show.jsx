@@ -117,16 +117,46 @@ function Card({ children, className = '' }) {
     );
 }
 
+// Same rules as CanonicalItem::nameKey(): case, spacing and the iPhone
+// keyboard's curly quotes and smart dashes don't count.
+const nameKey = (s) =>
+    s
+        .replace(/[‘’]/g, "'")
+        .replace(/[“”]/g, '"')
+        .replace(/[–—]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+// A suggestion must contain every typed word, e.g. "milk wh" finds
+// "Organic A2 Whole Milk". Names starting with the text come first.
+function suggestionsFor(catalog, text) {
+    const key = nameKey(text);
+    if (!key) return [];
+    const words = key.split(' ');
+    return catalog
+        .filter((c) => words.every((w) => nameKey(c.name).includes(w)))
+        .sort(
+            (a, b) =>
+                nameKey(b.name).startsWith(key) -
+                nameKey(a.name).startsWith(key),
+        )
+        .slice(0, 6);
+}
+
+// Not a <datalist>: iOS Safari only shows those in the keyboard's
+// suggestion bar, if at all, so on an iPhone nothing appeared.
 function AddItem({ catalog }) {
     const [name, setName] = useState('');
     const [qty, setQty] = useState('');
-    const known = catalog.some(
-        (c) => c.name.toLowerCase() === name.trim().toLowerCase(),
-    );
+    const [open, setOpen] = useState(false);
+    const known = catalog.some((c) => nameKey(c.name) === nameKey(name));
+    const suggestions = known ? [] : suggestionsFor(catalog, name);
 
     const submit = (e) => {
         e.preventDefault();
         if (!name.trim()) return;
+        setOpen(false);
         router.post(
             route('list.items.store'),
             { name, qty: qty || null },
@@ -134,16 +164,56 @@ function AddItem({ catalog }) {
         );
     };
 
+    const pick = (c) => {
+        setName(c.name);
+        setOpen(false);
+    };
+
     return (
         <form onSubmit={submit} className="space-y-1">
             <div className="flex gap-2">
-                <TextInput
-                    className="min-w-0 flex-1"
-                    placeholder="Add an item, e.g. Whole milk"
-                    list="catalog"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                />
+                <div className="relative min-w-0 flex-1">
+                    <TextInput
+                        className="w-full"
+                        placeholder="Add an item, e.g. Whole milk"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        role="combobox"
+                        aria-expanded={open && suggestions.length > 0}
+                        aria-controls="item-suggestions"
+                        value={name}
+                        onChange={(e) => {
+                            setName(e.target.value);
+                            setOpen(true);
+                        }}
+                        onFocus={() => setOpen(true)}
+                        onBlur={() => setOpen(false)}
+                        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+                    />
+                    {open && suggestions.length > 0 && (
+                        <ul
+                            id="item-suggestions"
+                            role="listbox"
+                            className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black/5"
+                        >
+                            {suggestions.map((c) => (
+                                <li key={c.id} role="option" aria-selected="false">
+                                    <button
+                                        type="button"
+                                        className="block w-full px-3 py-2.5 text-left text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+                                        // Keep focus in the field so its blur
+                                        // doesn't close the list before the tap.
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => pick(c)}
+                                    >
+                                        {c.name}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
                 <TextInput
                     className="w-20"
                     type="number"
@@ -155,12 +225,7 @@ function AddItem({ catalog }) {
                 />
                 <PrimaryButton disabled={!name.trim()}>Add</PrimaryButton>
             </div>
-            <datalist id="catalog">
-                {catalog.map((c) => (
-                    <option key={c.id} value={c.name} />
-                ))}
-            </datalist>
-            {name.trim() && !known && (
+            {name.trim() && !known && !(open && suggestions.length > 0) && (
                 <p className="text-xs text-gray-500">
                     Not a known item, so it'll be added as a note and won't be
                     assigned a store.{' '}

@@ -74,8 +74,8 @@ class ShoppingListController extends Controller
         ]);
 
         $list = ShoppingList::current();
-        $name = trim($data['name']);
-        $item = CanonicalItem::whereRaw('lower(name) = ?', [mb_strtolower($name)])->first();
+        $name = trim(preg_replace('/\s+/u', ' ', $data['name']));
+        $item = CanonicalItem::findByTypedName($name);
 
         $list->items()->create([
             'canonical_item_id' => $item?->id,
