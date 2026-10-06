@@ -131,6 +131,18 @@ class ShoppingListPlanTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('lines.0.unplanned_reason', 'Never bought at an active store yet. Link a product to it on the Item matching page.'));
     }
 
+    public function test_adding_by_name_ignores_iphone_smart_punctuation_and_spacing(): void
+    {
+        $user = User::factory()->create();
+        $tea = CanonicalItem::create(['name' => "Trader Joe's Half-Caff Tea"]);
+
+        $this->actingAs($user)->post(route('list.items.store'), ['name' => "  trader joe’s  half–caff tea "]);
+
+        $line = ShoppingList::current()->items()->sole();
+        $this->assertSame($tea->id, $line->canonical_item_id);
+        $this->assertNull($line->free_text);
+    }
+
     public function test_list_flow_add_staples_move_remember_and_replan(): void
     {
         $user = User::factory()->create();
