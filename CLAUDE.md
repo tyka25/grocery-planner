@@ -69,7 +69,9 @@ installs two launchd agents (`com.grocery-planner.web`,
 `com.grocery-planner.sidecar`) that start at login and restart within 30s
 if they exit. The script also does a fresh `npm run build`. Logs are in
 `~/Library/Logs/grocery-planner/`. Use `status` and `uninstall` as
-arguments. Re-run it after changing the PHP or Node version (it writes
+arguments. `sidecar` installs only the sidecar agent (and removes the web
+one), for when the web app is hosted elsewhere and `sidecar/.env`'s
+`GROCERY_PLANNER_API_URL` points there. Re-run it after changing the PHP or Node version (it writes
 absolute paths from your shell, since launchd doesn't read your profile).
 A sidecar restart rebuilds `dist/`, but a PHP or asset change in `web/`
 needs a re-run, or `launchctl kickstart -k gui/$(id -u)/com.grocery-planner.web`
@@ -177,6 +179,12 @@ are already in use.
   listed on `/list` (`scrape_runs.missing`, ok runs only) with a prompt to
   link a replacement. Only an explicit `available: false` re-routes the
   planner.
+- **The sidecar can't run on a cloud server.** Tried 2026-10-07 on a
+  DigitalOcean droplet (Forge): every Instacart page returned a CloudFront
+  `403 Request blocked` before the session was even read, so it's an IP
+  block, not a session problem. The web app can live on a server; the
+  sidecar stays on a home machine (`install-launchd.sh sidecar`) and posts
+  out to it. It only makes outbound requests, so no tunnel is needed.
 - **Never wait for `networkidle` on Instacart.** Analytics and polling
   traffic never stops, so it always hit the 30s timeout (the first real
   run failed this way). Use `domcontentloaded`. Search waits until the
@@ -206,10 +214,10 @@ stock checks, checking newly added items). Remaining, roughly in order:
 3. **Make it run unattended.** Done 2026-10-04 with
    `scripts/install-launchd.sh` (see "Running the sidecar"). Verified:
    both jobs start, the sidecar polls the server, the LAN URL answers,
-   and a `kill -9` of either job is restarted. Staying awake is done with
-   `caffeinate -s` around the sidecar, not `pmset`, so no sudo is needed.
-   It only holds on AC power, and closing the lid still sleeps the
-   laptop. Not yet verified across a reboot or a full day of use. Logs
+   and a `kill -9` of either job is restarted. The sidecar used to run
+   under `caffeinate -s`; removed 2026-10-07 at the user's request, so
+   checks run only while the Mac is awake and catch up after a wake or
+   login. Not yet verified across a reboot or a full day of use. Logs
    aren't rotated (low volume).
 4. **Phone access on the home network.** Set up 2026-10-04; verified
    over the LAN address from the Mac, not yet from a phone.

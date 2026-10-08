@@ -47,11 +47,12 @@ npm run login   # sign in to Instacart, check the address and Fareway store, pre
 
 ```
 scripts/install-launchd.sh            # install and start (also: status, uninstall)
+scripts/install-launchd.sh sidecar    # only the sidecar, when the web app is hosted elsewhere
 ```
 
 This runs the web server and the sidecar loop as launchd agents. They start
-at login, restart if they crash, and keep the Mac awake while it's plugged
-in. Logs are in `~/Library/Logs/grocery-planner/`. Re-run the script after
+at login and restart if they crash. Stock is only checked while the Mac is
+awake; a check that came due during sleep runs after it wakes. Logs are in `~/Library/Logs/grocery-planner/`. Re-run the script after
 changing PHP or Node versions, or after pulling changes to `web/`.
 
 The app is then at `http://Tylers-MacBook-Pro-2.local:8000` from any device
