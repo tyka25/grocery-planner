@@ -196,6 +196,44 @@ are already in use.
   words in the description" suggested "Lemon" for lemon hummus, lemon
   seltzer, and lemon-garlic pork on the real data. Thresholds live in
   `config/grocery_planner.php` `matching`.
+- **Availability has to account for quantity, not just in-stock -- not yet
+  built.** If a list item wants 1 gallon and a store only carries
+  half-gallons, the planner needs to combine packs (two half-gallons), not
+  just check whether *a* pack of the item is in stock. `store_products`
+  has `size_text` (free text, e.g. "6 x 8 fl oz") and `pack_count` today,
+  with no normalized quantity+unit, and `Planner.php` currently assigns one
+  `store_product_id` per line with no multi-pack combination step.
+  Needs, in order: (1) a normalized quantity+unit column, sourced from
+  Instacart's own `pricingUnitString` (e.g. "0.5 gal") rather than
+  re-parsed from `size_text`; (2) a per-store pack-combination step run
+  before `Planner::initial()`'s availability check; (3) an overage
+  tolerance, since cheapest-to-meet-target can mean 1.5 gal on hand for a
+  1 gal ask -- fine for shelf-stable goods, not for perishables. That
+  tolerance is a per-canonical-item judgement call, same shape as the
+  matching thresholds, not a number to pick without the user.
+- **Instacart already computes price-per-unit server-side -- confirmed
+  live, not yet captured.** Checked 2026-10-08 against Hy-Vee's "milk"
+  search: `price.viewSection.itemDetails.pricePerUnitString` (e.g.
+  "$0.05/fl oz") is in the GraphQL `Items` response even though search
+  cards only render total price + size. The sidecar's field extraction
+  (`price.viewSection.priceValueString`, `size`) doesn't capture it yet.
+  Pull it directly rather than re-deriving from `size_text`, which is free
+  text and includes multipacks (e.g. "6 x 8 fl oz") where naive division
+  is wrong.
+- **Planner priority is availability, then usual-store/minimums, then
+  price as a guardrail only** (household's call, 2026-10-08): price is
+  never used to rank or pick the cheapest store across the board --
+  that's what the "usual store, re-route only when needed" objective
+  above already means. Price's only job is to catch a genuinely bad
+  outlier: if the assigned store's price is more than 2x the cheapest
+  available, quantity-sufficient option, flag or reroute (config value,
+  not hardcoded -- e.g. `grocery_planner.planner.price_override_ratio`).
+  Plain ratio, not ratio+floor, so a cheap item can trip it on a trivial
+  dollar amount (a $0.50 item at $1.25 is 2.5x) -- noted, not designed
+  around; revisit the threshold if it's noisy in real use. Not yet
+  implemented in `Planner.php` -- today price is only used as a
+  minimum-repair cost tie-break, never as an override on the initial
+  assignment.
 
 ## Next steps (paused 2026-10-04)
 
