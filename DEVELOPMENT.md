@@ -43,11 +43,17 @@ php artisan migrate
   doesn't work, because `php artisan serve` doesn't pass shell variables
   through. If you need that, start `php -S` from `web/public` instead.
 
-To run it:
+To run it, from `web/`, in a terminal you leave open:
 
 ```
-composer dev        # starts the server, queue, log tail and Vite together
+composer dev        # php artisan serve (port 8000) + queue + log tail + Vite
 ```
+
+`composer dev` runs `php artisan serve` for you, at
+`http://localhost:8000`. If you aren't changing the React/CSS, you can
+instead run `npm run build` once and then just `php artisan serve` (also
+from `web/`). Either way, keep it running while you use the sidecar,
+which posts to it.
 
 **Watch out:** Vite leaves a `public/hot` file pointing at 127.0.0.1:5173.
 While that file is there, a phone (or any other device) gets a blank page.
@@ -68,7 +74,8 @@ cp .env.example .env
 In `sidecar/.env`, set `SIDECAR_TOKEN` to the same value as in `web/.env`.
 Leave `GROCERY_PLANNER_API_URL=http://localhost:8000/api` as it is.
 
-Then:
+Then, in a second terminal from `sidecar/`, with the web app from step 2
+still running (`login` and `product` don't need it; `once` and `loop` do):
 
 ```
 npm run login                        # sign in, check home address + Fareway Riverside store, press Enter
