@@ -53,8 +53,8 @@ at login and restart if they crash. Stock is only checked while the Mac is
 awake; a check that came due during sleep runs after it wakes. Logs are in `~/Library/Logs/grocery-planner/`. Re-run the script after
 changing PHP or Node versions, or after pulling changes to `web/`.
 
-The app is then at `http://Tylers-MacBook-Pro-2.local:8000` from any device
-on the home network. Stock is checked when "Check stock now" is pressed on
+The app is then at `http://<your-mac>.local:8000` from any device on the
+home network (find the name with `scutil --get LocalHostName`). Stock is checked when "Check stock now" is pressed on
 `/list`, when an item is added, and automatically every 6 hours.
 
 To run things by hand instead, uninstall the agents first, then use

@@ -78,7 +78,7 @@ Then, in a second terminal from `sidecar/`, with the web app from step 2
 still running (`login` and `product` don't need it; `once` and `loop` do):
 
 ```
-npm run login                        # sign in, check home address + Fareway Riverside store, press Enter
+npm run login                        # sign in, check home address + Fareway pickup store, press Enter
 npm start -- product hy-vee 19036914 # reads one product page and posts nothing: the safe first check
 npm run once                         # one real run against your local web app
 npm run loop                         # polls every 60s, like production

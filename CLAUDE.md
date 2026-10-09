@@ -57,7 +57,7 @@ set in both `web/.env` and `sidecar/.env`.
 
 1. `cd web && php artisan serve` (the API the sidecar polls).
 2. `cd sidecar && npm run login`: sign in, check the home address and
-   the Fareway Riverside pickup store, press Enter. Saves `storage-state.json`.
+   your Fareway pickup store, press Enter. Saves `storage-state.json`.
 3. `npm start -- product hy-vee 19036914`: debug read of one product
    page (what runs do) that posts nothing. Good first check that capture
    still works. (`npm start -- search <store> <query>` also exists.)
@@ -308,8 +308,8 @@ stock checks, checking newly added items). Remaining, roughly in order:
    - Serve with `php artisan serve --host=0.0.0.0` and built assets
      (`npm run build`, no `public/hot`). A running `npm run dev` writes
      `public/hot` pointing at 127.0.0.1:5173, so a phone gets a blank page.
-   - URL: `http://Tylers-MacBook-Pro-2.local:8000`. The LAN IP
-     (192.168.0.10) can change.
+   - URL: `http://Tylers-MacBook-Pro-2.local:8000` (use the `.local` name;
+     the LAN IP can change).
    - Local `.env` has `APP_DEBUG=false` and the LAN `APP_URL`.
    - `/register` 404s unless `REGISTRATION_OPEN=true` (config
      `grocery_planner.registration_open`). Only Katie's account exists;
