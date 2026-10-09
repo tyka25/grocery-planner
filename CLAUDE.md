@@ -345,9 +345,9 @@ The cloud workspace used to build the initial `overlay/` files had no
 network access to `packagist.org` (confirmed via its proxy's egress
 policy -- blocked by host, unrelated to any GitHub account/identity), so
 `scripts/bootstrap-web.sh` existed to let composer/npm run with real
-network access instead. That script has already been run (by hand, not by
-it directly) -- `web/` is a complete Laravel install; the script is now
-just a record of the steps, not something you need to re-run.
+network access instead. That was run by hand and `web/` is a complete
+Laravel install; both `overlay/` and the script were removed on
+2026-10-08 (still in git history).
 `resources/js/bootstrap.js` was never committed by that bootstrap (Breeze's
 `app.jsx` imports it), so `npm run build` -- and every Breeze test that
 renders a page -- failed until it was added on 2026-10-04. Also on this

@@ -14,9 +14,7 @@ web/        Laravel + Inertia/React app: CSV import, item matching (/matching),
 sidecar/    Node/TypeScript + Playwright. Reads live Instacart stock and price
             from a logged-in session and posts it to web/.
 scripts/    install-launchd.sh runs both of the above unattended.
-            bootstrap-web.sh is a record of how web/ was first created.
 data/       Your real Instacart CSV exports (gitignored) and small fixtures.
-overlay/    Historical: files built before web/ existed, already merged in.
 ```
 
 ## Setup
