@@ -39,7 +39,7 @@ php artisan migrate
   or run `php artisan db:seed` for a `test@example.com` / `password` user.
 - **Work on a copy of the database.** `database/database.sqlite` is the
   household's real data and it isn't backed up. Copy it and point
-  `DB_DATABASE` in `.env` at the copy. Setting it as a shell variable
+  `DB_DATABASE` in `.env` at the copy (if it's not automatically detected). Setting it as a shell variable
   doesn't work, because `php artisan serve` doesn't pass shell variables
   through. If you need that, start `php -S` from `web/public` instead.
 
