@@ -17,9 +17,7 @@ class InstacartImportTest extends TestCase
 {
     private function importer(): Importer
     {
-        $config = require __DIR__.'/../../config/grocery_planner.php';
-
-        return new Importer($config['location_resolver']);
+        return new Importer(require __DIR__.'/../../config/locations.example.php');
     }
 
     private function fixture(string $name): string
@@ -52,7 +50,7 @@ class InstacartImportTest extends TestCase
         // Only the home address matches this deliberately incomplete resolver.
         // Two of the four fixture orders share that home address (one Delivered,
         // one Partial Refund), so only the two genuinely different addresses --
-        // Fareway/Riverside and the Florida travel order -- come back unresolved;
+        // the Fareway pickup and the Florida travel order -- come back unresolved;
         // unresolved_addresses is deduplicated, not a count of orders.
         $this->assertCount(2, $result['unresolved_addresses']);
         $unresolvedOrder = collect($result['orders'])->firstWhere('instacart_order_id', '21311852541498428');

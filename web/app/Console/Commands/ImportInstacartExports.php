@@ -31,7 +31,7 @@ class ImportInstacartExports extends Command
         $lines = $importer->parsePurchasedItems($purchasedItemsPath);
 
         if (!empty($oh['unresolved_addresses'])) {
-            $this->warn('Unresolved shipping addresses (add these to config/grocery_planner.php location_resolver):');
+            $this->warn('Unresolved shipping addresses (add these to config/locations.local.php):');
             foreach ($oh['unresolved_addresses'] as $addr) {
                 $this->line("  - {$addr}");
             }

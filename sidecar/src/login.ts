@@ -19,7 +19,7 @@ export async function login(storageStatePath: string): Promise<void> {
       "",
       "In the browser window that just opened:",
       "  1. Sign in to Instacart.",
-      "  2. Check the delivery address is home, and that Fareway is set to the Riverside pickup store",
+      "  2. Check the delivery address is home, and that Fareway is set to your pickup store",
       "     (stock and prices are per-location).",
       "Then come back here and press Enter to save the session... ",
     ].join("\n")

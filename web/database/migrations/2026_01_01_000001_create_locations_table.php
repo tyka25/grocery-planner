@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('label');
             $table->string('address');
-            // home: your delivery address. pickup_site: a store you drive to (e.g. Fareway/Riverside).
+            // home: your delivery address. pickup_site: a store you drive to (e.g. Fareway pickup).
             // travel: anywhere incidental (vacation) that shouldn't factor into store preferences.
             $table->enum('kind', ['home', 'pickup_site', 'travel'])->default('home');
             $table->boolean('import_enabled')->default(true);

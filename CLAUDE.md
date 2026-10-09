@@ -8,7 +8,7 @@ household access control.
 
 Shopping list spans recipes plus recurring baby staples (milk, yogurt,
 berries, cheese...), split across Hy-Vee, Costco, Sam's Club, and Fareway
-(pickup-only, at a Riverside location), based on live stock and price, with
+(pickup-only), based on live stock and price, with
 re-routing when a store's order minimum isn't met.
 
 ## Architecture
@@ -102,9 +102,10 @@ are already in use.
   Blueberries Package) at both Aldi and Hy-Vee.
 - **Shipping Address identifies *fulfillment location*, not delivery
   destination.** A pickup order's "address" is the store you drove to.
-  Confirmed: all 3 Fareway orders list a Riverside address because Fareway
-  pickup-only, not because groceries were delivered there. See
-  `config/grocery_planner.php` `location_resolver` -- it's a hand-maintained
+  Confirmed: all 3 Fareway orders list the store's address because Fareway
+  is pickup-only, not because groceries were delivered there. See
+  `location_resolver` (real addresses in the gitignored
+  `config/locations.local.php`) -- it's a hand-maintained
   map because this is a one-time human judgement call, not something to
   infer from the data.
 - **Fulfillment cost models differ by store.** Delivery has a free-delivery
