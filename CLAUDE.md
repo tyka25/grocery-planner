@@ -203,14 +203,31 @@ are already in use.
   has `size_text` (free text, e.g. "6 x 8 fl oz") and `pack_count` today,
   with no normalized quantity+unit, and `Planner.php` currently assigns one
   `store_product_id` per line with no multi-pack combination step.
-  Needs, in order: (1) a normalized quantity+unit column, sourced from
-  Instacart's own `pricingUnitString` (e.g. "0.5 gal") rather than
-  re-parsed from `size_text`; (2) a per-store pack-combination step run
-  before `Planner::initial()`'s availability check; (3) an overage
-  tolerance, since cheapest-to-meet-target can mean 1.5 gal on hand for a
-  1 gal ask -- fine for shelf-stable goods, not for perishables. That
-  tolerance is a per-canonical-item judgement call, same shape as the
-  matching thresholds, not a number to pick without the user.
+  Needs, in order:
+  1. A normalized quantity+unit column, sourced from Instacart's own
+     `pricingUnitString` (e.g. "0.5 gal") rather than re-parsed from
+     `size_text`.
+  2. A per-store pack-combination step, run before `Planner::initial()`'s
+     availability check, that finds every combination of available packs
+     meeting or exceeding the target quantity.
+  3. **Pick the closest match, not the cheapest** (household's call,
+     2026-10-08: price isn't a routine concern, so don't optimize for it
+     here). Among combinations that meet or exceed the target, choose the
+     one with the smallest overage -- two half-gallons over one 64 fl oz
+     jug if that's closer to a 1 gal target, regardless of which costs
+     less. Ties (equal overage) fall through to the existing usual-store
+     preference, then the price guardrail above. Assumption, not yet
+     confirmed with the user: a combination is only valid if it meets or
+     exceeds the target -- under-target is never chosen even if closer.
+  4. **Still open, and genuinely ambiguous -- not ready to hand to a
+     coding agent as-is:** the normalization scheme itself. `size_text`
+     mixes volume ("0.5 gal"), weight (future items), and count/multipack
+     ("6 x 8 fl oz") -- an agent needs a rule for which unit family each
+     canonical item normalizes to, and whether a multipack's total
+     (48 fl oz) is the comparable quantity, or whether the household
+     actually wants N discrete units (6 cartons) and a multipack of 4
+     doesn't satisfy "need 6 cartons" even if the fl oz total matches.
+     Needs a user decision before this step is built, not an assumption.
 - **Instacart already computes price-per-unit server-side -- confirmed
   live, not yet captured.** Checked 2026-10-08 against Hy-Vee's "milk"
   search: `price.viewSection.itemDetails.pricePerUnitString` (e.g.
@@ -234,6 +251,35 @@ are already in use.
   implemented in `Planner.php` -- today price is only used as a
   minimum-repair cost tie-break, never as an override on the initial
   assignment.
+
+## Open questions before handoff (2026-10-08)
+
+Not ready to hand the quantity-aware availability work (see "Decisions and
+why" above) to a coding agent until these are answered -- both are
+household judgement calls, not implementation details, and a wrong
+assumption here would quietly produce bad shopping lists rather than fail
+loudly.
+
+1. **Unit family per canonical item: volume/weight total, or discrete
+   units?** `size_text` mixes "0.5 gal" (volume) with multipacks like
+   "6 x 8 fl oz" (count of units). For a volume/weight item (milk, flour),
+   normalizing to a total (48 fl oz) is probably right. For a
+   discrete-unit item (yogurt cups, eggs, diapers), the household may
+   actually be asking for N *units*, not a volume total -- a 4-pack plus
+   a 4-pack might overshoot both the fl oz total and the "6 cups" the
+   recipe wanted, and still be the wrong buy. Needs: does this get decided
+   per canonical item (a flag: "compare by total quantity" vs "compare by
+   unit count"), and if so, who sets that flag when a canonical item is
+   created on `/matching`?
+2. **Does a combination ever fall short of target on purpose?** Current
+   assumption (not yet confirmed): a pack combination is only valid if it
+   meets or exceeds the target quantity -- under-target is never chosen
+   even if it would otherwise be numerically closer (e.g. target 1 gal:
+   0.75 gal is closer to 1 gal than 1.5 gal is, but 0.75 gal doesn't cover
+   the ask, so 1.5 gal should still win). Confirm this is right before an
+   agent builds the comparison logic, since "closest absolute match"
+   and "closest match that still meets the target" are different
+   algorithms.
 
 ## Next steps (paused 2026-10-04)
 
