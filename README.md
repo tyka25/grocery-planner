@@ -1,5 +1,7 @@
 # grocery-planner
 
+![Grocery Planner banner](docs/images/banner.png)
+
 A household grocery planner that turns one shopping list into a plan across
 several stores. It decides which store each item should come from based on
 the household's usual stores, live stock and price read from Instacart, and
