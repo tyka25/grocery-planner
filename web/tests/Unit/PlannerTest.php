@@ -38,7 +38,7 @@ class PlannerTest extends TestCase
         return ['list_item_id' => $id, 'qty' => $qty, 'manual_store_id' => $manual, 'options' => $options];
     }
 
-    private function plan(array $lines, array $stores = null): array
+    private function plan(array $lines, ?array $stores = null): array
     {
         return (new Planner(pickupTripCost: 10.0, assumedDeliveryFee: 3.99))->plan($lines, $stores ?? $this->stores());
     }
