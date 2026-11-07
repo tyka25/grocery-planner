@@ -187,9 +187,9 @@ class Importer
         fwrite($fh, $csv);
         rewind($fh);
 
-        $header = fgetcsv($fh);
+        $header = fgetcsv($fh, escape: "");
         $rows = [];
-        while (($data = fgetcsv($fh)) !== false) {
+        while (($data = fgetcsv($fh, escape: "")) !== false) {
             if (count($data) === 1 && $data[0] === null) {
                 continue; // blank line
             }
