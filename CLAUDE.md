@@ -340,6 +340,14 @@ recreate with `npm run login`), and `web/.env` / `sidecar/.env` (the
   unchanged. If it moves, runs fail loudly with the "no product data"
   error, and `npm start -- product ...` is the quickest way to check.
 
+## Production
+
+`web/` runs at `https://grocery-planner.abbo2t.com` on a CloudPanel server
+(since 2026-11-22; it was on a Forge droplet before). Deploy steps, the
+server layout and gotchas are in `docs/deploy.md`. The sidecar stays on a
+home machine; it feeds production when its `GROCERY_PLANNER_API_URL` points
+at `https://grocery-planner.abbo2t.com/api`.
+
 ## Build-environment note
 
 The cloud workspace used to build the initial `overlay/` files had no
